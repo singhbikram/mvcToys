@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
-using WingtipToys.Models;
 
-namespace WingtipToys.Logic
+namespace WingtipToys.Models
 {
-  public class ShoppingCartActions : IDisposable
-  {
+    public class ShoppingCartModel : IDisposable
+    {
+         {
     public string ShoppingCartId { get; set; }
 
     private ProductContext _db = new ProductContext();
@@ -97,16 +97,16 @@ namespace WingtipToys.Logic
       return total ?? decimal.Zero;
     }
 
-    public static ShoppingCartActions GetCart(HttpContextBase context)
+    public static ShoppingCartModel GetCart(HttpContextBase context)
     {
-      using (var cart = new ShoppingCartActions())
+      using (var cart = new ShoppingCartModel())
       {
         cart.ShoppingCartId = cart.GetCartId();
         return cart;
       }
       
     }
-    public static ShoppingCartActions GetCart(Controller controller)
+    public static ShoppingCartModel GetCart(Controller controller)
     {
         return GetCart(controller.HttpContext);
     }

@@ -1,0 +1,59 @@
+﻿
+@{
+    ViewBag.Title = "ShoppingCartView";
+}
+<script src="/Scripts/jquery-1.4.4.min.js"
+        type="text/javascript"></script>
+<script type="text/javascript">
+    $(function () {
+       //handle onclick events here
+    });
+</script>
+<div id="ShoppingCartTitle"  class="ContentHead"><h1>Shopping Cart</h1></div>
+<asp:GridView ID="CartList"  AutoGenerateColumns="False" ShowFooter="True" GridLines="Vertical" CellPadding="4"
+              ItemType="WingtipToys.Models.CartItem" SelectMethod="GetShoppingCartItems"
+              CssClass="table table-striped table-bordered">
+    <columns>
+        <asp:boundfield datafield="ProductID" headertext="ID" sortexpression="ProductID" />
+        <asp:boundfield datafield="Product.ProductName" headertext="Name" />
+        <asp:boundfield datafield="Product.UnitPrice" headertext="Price (each)" dataformatstring="{0:c}" />
+        <asp:templatefield headertext="Quantity">
+            <itemtemplate>
+                <asp:TextBox ID="PurchaseQuantity" Width="40"  Text="<%#: Item.Quantity %>"></asp:TextBox>
+            </itemtemplate>
+        </asp:templatefield>
+        <asp:templatefield headertext="Item Total">
+            <itemtemplate>
+                <%#: String.Format("{0:c}", ((Convert.ToDouble(Item.Quantity)) *  Convert.ToDouble(Item.Product.UnitPrice)))%>
+            </itemtemplate>
+        </asp:templatefield>
+        <asp:templatefield headertext="Remove Item">
+            <itemtemplate>
+                <asp:CheckBox id="Remove" ></asp:CheckBox>
+            </itemtemplate>
+        </asp:templatefield>
+    </columns>
+</asp:GridView>
+<div>
+    <p></p>
+    <strong>
+        <asp:Label ID="LabelTotalText"  Text="Order Total: "></asp:Label>
+        <asp:Label ID="lblTotal" ></asp:Label>
+    </strong>
+</div>
+<br />
+<table>
+    <tr>
+        <td>
+            <asp:Button ID="UpdateBtn"  Text="Update" OnClick="UpdateBtn_Click" />
+        </td>
+        <td>
+            <asp:ImageButton ID="CheckoutImageBtn" 
+                             ImageUrl="https://www.paypal.com/en_US/i/btn/btn_xpressCheckout.gif"
+                             Width="145" AlternateText="Check out with PayPal"
+                             OnClick="CheckoutBtn_Click"
+                             BackColor="Transparent" BorderWidth="0" />
+        </td>
+    </tr>
+</table>
+
