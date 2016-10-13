@@ -3,230 +3,57 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
+using WingtipToys.Logic.ShoppingCartActions;
 
 namespace WingtipToys.Models
 {
-    public class ShoppingCartModel : IDisposable
+    public class ShoppingCartModel 
+  {
+    public List<CartItem> GetShoppingCartItems()
     {
-         {
-    public string ShoppingCartId { get; set; }
-
-    private ProductContext _db = new ProductContext();
-
-    public const string CartSessionKey = "CartId";
-
-    public void AddToCart(int id)
-    {
-      // Retrieve the product from the database.           
-      ShoppingCartId = GetCartId();
-
-      var cartItem = _db.ShoppingCartItems.SingleOrDefault(
-          c => c.CartId == ShoppingCartId
-          && c.ProductId == id);
-      if (cartItem == null)
-      {
-        // Create a new cart item if no cart item exists.                 
-        cartItem = new CartItem
-        {
-          ItemId = Guid.NewGuid().ToString(),
-          ProductId = id,
-          CartId = ShoppingCartId,
-          Product = _db.Products.SingleOrDefault(
-           p => p.ProductID == id),
-          Quantity = 1,
-          DateCreated = DateTime.Now
-        };
-
-        _db.ShoppingCartItems.Add(cartItem);
-      }
-      else
-      {
-        // If the item does exist in the cart,                  
-        // then add one to the quantity.                 
-        cartItem.Quantity++;
-      }
-      _db.SaveChanges();
+      ShoppingCartActions actions = new ShoppingCartActions();
+      return actions.GetCartItems();
     }
 
-    public void Dispose()
+    public List<CartItem> UpdateCartItems()
     {
-      if (_db != null)
+      using (ShoppingCartActions usersShoppingCart = new ShoppingCartActions())
       {
-        _db.Dispose();
-        _db = null;
-      }
-    }
+        String cartId = usersShoppingCart.GetCartId();
 
-    public string GetCartId()
-    {
-      if (HttpContext.Current.Session[CartSessionKey] == null)
-      {
-        if (!string.IsNullOrWhiteSpace(HttpContext.Current.User.Identity.Name))
+        ShoppingCartActions.ShoppingCartUpdates[] cartUpdates = new ShoppingCartActions.ShoppingCartUpdates[CartList.Rows.Count];
+        for (int i = 0; i < CartList.Rows.Count; i++)
         {
-          HttpContext.Current.Session[CartSessionKey] = HttpContext.Current.User.Identity.Name;
+          IOrderedDictionary rowValues = new OrderedDictionary();
+          rowValues = GetValues(CartList.Rows[i]);
+          cartUpdates[i].ProductId = Convert.ToInt32(rowValues["ProductID"]);
+
+          CheckBox cbRemove = new CheckBox();
+          cbRemove = (CheckBox)CartList.Rows[i].FindControl("Remove");
+          cartUpdates[i].RemoveItem = cbRemove.Checked;
+
+          TextBox quantityTextBox = new TextBox();
+          quantityTextBox = (TextBox)CartList.Rows[i].FindControl("PurchaseQuantity");
+          cartUpdates[i].PurchaseQuantity = Convert.ToInt16(quantityTextBox.Text.ToString());
         }
-        else
+        usersShoppingCart.UpdateShoppingCartDatabase(cartId, cartUpdates);
+        CartList.DataBind();
+        lblTotal.Text = String.Format("{0:c}", usersShoppingCart.GetTotal());
+        return usersShoppingCart.GetCartItems();
+      }
+    }
+
+    public static IOrderedDictionary GetValues(GridViewRow row)
+    {
+      IOrderedDictionary values = new OrderedDictionary();
+      foreach (DataControlFieldCell cell in row.Cells)
+      {
+        if (cell.Visible)
         {
-          // Generate a new random GUID using System.Guid class.     
-          Guid tempCartId = Guid.NewGuid();
-          HttpContext.Current.Session[CartSessionKey] = tempCartId.ToString();
+          // Extract values from the cell.
+          cell.ContainingField.ExtractValuesFromCell(values, cell, row.RowState, true);
         }
       }
-      return HttpContext.Current.Session[CartSessionKey].ToString();
+      return values;
     }
-
-    public List<CartItem> GetCartItems()
-    {
-      ShoppingCartId = GetCartId();
-
-      return _db.ShoppingCartItems.Where(
-          c => c.CartId == ShoppingCartId).ToList();
-    }
-
-    public decimal GetTotal()
-    {
-      ShoppingCartId = GetCartId();
-      // Multiply product price by quantity of that product to get        
-      // the current price for each of those products in the cart.  
-      // Sum all product price totals to get the cart total.   
-      decimal? total = decimal.Zero;
-      total = (decimal?)(from cartItems in _db.ShoppingCartItems
-                         where cartItems.CartId == ShoppingCartId
-                         select (int?)cartItems.Quantity *
-                         cartItems.Product.UnitPrice).Sum();
-      return total ?? decimal.Zero;
-    }
-
-    public static ShoppingCartModel GetCart(HttpContextBase context)
-    {
-      using (var cart = new ShoppingCartModel())
-      {
-        cart.ShoppingCartId = cart.GetCartId();
-        return cart;
-      }
-      
-    }
-    public static ShoppingCartModel GetCart(Controller controller)
-    {
-        return GetCart(controller.HttpContext);
-    }
-
-    public void UpdateShoppingCartDatabase(String cartId, ShoppingCartUpdates[] CartItemUpdates)
-    {
-      using (var db = new WingtipToys.Models.ProductContext())
-      {
-        try
-        {
-          int CartItemCount = CartItemUpdates.Count();
-          List<CartItem> myCart = GetCartItems();
-          foreach (var cartItem in myCart)
-          {
-            // Iterate through all rows within shopping cart list
-            for (int i = 0; i < CartItemCount; i++)
-            {
-              if (cartItem.Product.ProductID == CartItemUpdates[i].ProductId)
-              {
-                if (CartItemUpdates[i].PurchaseQuantity < 1 || CartItemUpdates[i].RemoveItem == true)
-                {
-                  RemoveItem(cartId, cartItem.ProductId);
-                }
-                else
-                {
-                  UpdateItem(cartId, cartItem.ProductId, CartItemUpdates[i].PurchaseQuantity);
-                }
-              }
-            }
-          }
-        }
-        catch (Exception exp)
-        {
-          throw new Exception("ERROR: Unable to Update Cart Database - " + exp.Message.ToString(), exp);
-        }
-      }
-    }
-
-    public void RemoveItem(string removeCartID, int removeProductID)
-    {
-      using (var _db = new WingtipToys.Models.ProductContext())
-      {
-        try
-        {
-          var myItem = (from c in _db.ShoppingCartItems where c.CartId == removeCartID && c.Product.ProductID == removeProductID select c).FirstOrDefault();
-          if (myItem != null)
-          {
-            // Remove Item.
-            _db.ShoppingCartItems.Remove(myItem);
-            _db.SaveChanges();
-          }
-        }
-        catch (Exception exp)
-        {
-          throw new Exception("ERROR: Unable to Remove Cart Item - " + exp.Message.ToString(), exp);
-        }
-      }
-    }
-
-    public void UpdateItem(string updateCartID, int updateProductID, int quantity)
-    {
-      using (var _db = new WingtipToys.Models.ProductContext())
-      {
-        try
-        {
-          var myItem = (from c in _db.ShoppingCartItems where c.CartId == updateCartID && c.Product.ProductID == updateProductID select c).FirstOrDefault();
-          if (myItem != null)
-          {
-            myItem.Quantity = quantity;
-            _db.SaveChanges();
-          }
-        }
-        catch (Exception exp)
-        {
-          throw new Exception("ERROR: Unable to Update Cart Item - " + exp.Message.ToString(), exp);
-        }
-      }
-    }
-
-    public void EmptyCart()
-    {
-      ShoppingCartId = GetCartId();
-      var cartItems = _db.ShoppingCartItems.Where(
-          c => c.CartId == ShoppingCartId);
-      foreach (var cartItem in cartItems)
-      {
-        _db.ShoppingCartItems.Remove(cartItem);
-      }
-      // Save changes.             
-      _db.SaveChanges();
-    }
-
-    public int GetCount()
-    {
-      ShoppingCartId = GetCartId();
-
-      // Get the count of each item in the cart and sum them up          
-      int? count = (from cartItems in _db.ShoppingCartItems
-                    where cartItems.CartId == ShoppingCartId
-                    select (int?)cartItems.Quantity).Sum();
-      // Return 0 if all entries are null         
-      return count ?? 0;
-    }
-
-    public struct ShoppingCartUpdates
-    {
-      public int ProductId;
-      public int PurchaseQuantity;
-      public bool RemoveItem;
-    }
-
-    public void MigrateCart(string cartId, string userName)
-    {
-      var shoppingCart = _db.ShoppingCartItems.Where(c => c.CartId == cartId);
-      foreach (CartItem item in shoppingCart)
-      {
-        item.CartId = userName;
-      }
-      HttpContext.Current.Session[CartSessionKey] = userName;
-      _db.SaveChanges();
-    }
-  }
 }

@@ -6,7 +6,17 @@
         type="text/javascript"></script>
 <script type="text/javascript">
     $(function () {
-       //handle onclick events here
+        $(".UpdateCart").click(function () {
+            var cartUpdate = { ProductID: int, PurchaseQuantity: int, RemoveItem: Boolean };
+            var cartUpdateList = [];
+            var cartList = document.getElementById("CartList");
+            for (var i = 1; i < CartList.Rows.Count; i++) {
+                var id = cartList.Rows[i].Cells[0].innerText;
+                var amount = cartList.Rows[i].Cells[3].elements[0].innerText;
+                var remove = cartList.Rows[i].Cells[3].elements[0].
+                var removeCheckBox = document.getElementById("Remove");
+            }
+        });
     });
 </script>
 <div id="ShoppingCartTitle"  class="ContentHead"><h1>Shopping Cart</h1></div>
